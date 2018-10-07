@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>BB8</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				margin: 0px;
+				background-color: #000000;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+	<body>
+
+		<script src="three.js/build/three.js"></script>
+		<script src="js/controls/OrbitControls.js"></script>
+		<script src="js/libs/dat.gui.min.js"></script>
+
+		<script>
+			"use strict";
+			var controls;
+			var light, light2, light3;
+			var camera, scene, renderer;
+			var mesh1;
+			var mesh2;
+			var heading = 0.0;
+			var addSpeed = 10.0;
+			var rotSpeed = 20.0;
+			var velocity = 0.0;
+			var lastTime;
+			var gui, params;
+
+			var Hi = function() {
+			  this.Heading = heading;
+			  this.Velocity = velocity;
+			  this.addSpeed = addSpeed;
+			  this.rotSpeed = rotSpeed;
+			  this.FollowMe = false;
+			  this.Stop = function() { 
+			  		velocity = 0;	  	
+			  };
+			};
+
+			init();
+
+			lastTime = Date.now();
+			animate();
+
+			function init() {
+
+				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 10, 5000 );
+				//camera.position.x = 200;往右為政
+				camera.position.z = 400; //往下為政
+				camera.position.y = 400; //面相螢幕
+
+				scene = new THREE.Scene();
+				
+				// light
+				light = new THREE.DirectionalLight(0xffffff);
+				light.position.set(100,200,400);
+				scene.add(light);
+				light2 = new THREE.DirectionalLight(0xffffff);
+				light2.position.set(-400,200,-400);
+				scene.add(light2);
+				light3 = new THREE.DirectionalLight(0xffffff);
+				light3.position.set(100,-400,-400);
+				scene.add(light3);
+
+				// ground plane
+				var texture = new THREE.TextureLoader().load( 'textures/UV_Grid_Sm.jpg' );
+				var geometry = new THREE.PlaneGeometry( 2000, 2000 );
+				var material = new THREE.MeshPhongMaterial( {map: texture, side: THREE.DoubleSide} );
+				var plane = new THREE.Mesh( geometry, material );
+				plane.rotation.x = -90 * Math.PI / 180;
+				plane.position.y = -100.01;
+				scene.add( plane );
+
+
+				var axisHelper = new THREE.AxisHelper( 200 );
+				scene.add( axisHelper );
+
+				////// BB8 ball
+				var texture2 = new THREE.TextureLoader().load( 'textures/BB8.jpg' );
+				var geometry = new THREE.SphereGeometry( 100, 32, 16 );
+				material = new THREE.MeshPhongMaterial( { map: texture2 } );			
+				mesh1 = new THREE.Mesh( geometry, material );
+				scene.add( mesh1 );
+				mesh1.rotation.y = 90 * Math.PI / 180;
+
+
+				///// BB8 head
+				var texture3 = new THREE.TextureLoader().load( 'textures/BB8-Head.jpg' );
+				var geometry2 = new THREE.SphereGeometry( 50, 32, 16 );
+				material = new THREE.MeshPhongMaterial( { map: texture3 } );
+				mesh2 = new THREE.Mesh( geometry2, material );
+				scene.add( mesh2 );
+				//mesh2.rotation.y = -90 * Math.PI / 180;
+				mesh2.position.y = 100;
+
+
+				window.onkeydown = function( event ) {
+        			var key = String.fromCharCode(event.keyCode);
+
+        			switch( key ) {
+          			  case 'w': case 'W':
+            			velocity += addSpeed;       
+            			break;
+
+          			  case 's': case 'S':  
+          			  	velocity -= addSpeed;          			  	          			 	
+            			break;
+
+          			  case 'a': case 'A':
+          			  	mesh1.rotation.y = mesh1.rotation.y + rotSpeed * Math.PI / 180;
+          				heading += rotSpeed;
+            			break;
+
+            		  case 'd': case 'D':           		  	
+            		  	mesh1.rotation.y = mesh1.rotation.y - rotSpeed * Math.PI / 180 ;
+            		  	heading -= rotSpeed;
+            			break;
+        			}
+    			};
+
+				renderer = new THREE.WebGLRenderer();
+
+				
+				renderer.setClearColor( 0xa0a0a0 );
+
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.body.appendChild( renderer.domElement );
+
+				
+				controls = new THREE.OrbitControls( camera, renderer.domElement );
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+				
+
+				params = new Hi();
+				gui = new dat.GUI();
+
+				gui.add(params, 'Heading').listen();
+				gui.add(params, 'Velocity').listen();
+				gui.add(params, 'addSpeed', 0, 30);
+				gui.add(params, 'rotSpeed', 0, 30);				
+				gui.add(params, 'Stop');
+				gui.add(params, 'FollowMe');
+				gui.open();
+
+
+			}
+
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+		
+			
+
+			function animate() {
+				requestAnimationFrame( animate );
+
+				
+				addSpeed = params.addSpeed;
+				rotSpeed = params.rotSpeed;
+
+
+				var deltaTime = (Date.now() - lastTime) / 1000.0;
+				lastTime = Date.now();
+				
+								
+				mesh1.rotation.z = mesh1.rotation.z -  deltaTime * velocity * 2 / 100;
+				
+				
+				
+				mesh1.position.z = mesh1.position.z - Math.sin(mesh1.rotation.y) * velocity * 2 *deltaTime;				
+            	mesh1.position.x = mesh1.position.x + Math.cos(mesh1.rotation.y) * velocity * 2 *deltaTime;
+
+
+            	
+            	/// 判斷是否碰壁
+            	if(mesh1.position.z  <= -900)
+					mesh1.position.z = -900;
+				if (mesh1.position.z >= 900)
+					mesh1.position.z = 900;
+				if (mesh1.position.x <= -900)
+					mesh1.position.x = -900;
+				if (mesh1.position.x >= 900)
+					mesh1.position.x = 900;	
+				
+
+
+				mesh2.position.z = mesh1.position.z;
+				mesh2.position.x = mesh1.position.x;
+				params.Velocity = velocity;
+				params.Heading = heading;
+
+				if(params.FollowMe){
+					var relativeCameraOffset = new THREE.Vector3(0,400,400);
+
+					var cameraOffset = relativeCameraOffset.applyMatrix4( mesh2.matrixWorld );
+
+					camera.position.x = cameraOffset.x;
+					camera.position.y = cameraOffset.y;
+					camera.position.z = cameraOffset.z;
+					camera.lookAt(mesh2.position);
+				}
+
+				
+				renderer.render( scene, camera );
+				controls.update();
+
+			}
+
+		</script>
+
+	</body>
+</html>
